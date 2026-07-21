@@ -1,28 +1,29 @@
 import logging
 import sqlite3
+from flask import Flask, request
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+app = Flask(__name__)
+logger = logging.getLogger(__name__)
 
-# Hardcoded credential — DPDP Section 8 security-safeguards violation
-DB_PASSWORD = "SuperSecret123!"
+# DPDP-009: hardcoded credentials committed to source
+password = "hunter2superSecret99"
+api_key = "sk_test_abc1234567890def"
 
 
-def register(user):
-    # PII in logs — email, phone, and Aadhaar written to logs in plaintext
-    log.info(f"New signup: email={user['email']}, phone={user['phone']}, aadhaar={user['aadhaar']}")
+@app.post("/user/profile")
+def save_profile():
+    # DPDP-004: personal data read straight from request parameters
+    email = request.args["email"]
+    aadhaar_number = request.args["aadhaar"]
+    phone = request.form["phone"]
 
+    # DPDP-002: personal data written to logs in plaintext
+    logger.info("New signup email " + email + " phone " + phone)
+    logger.error("Profile save failed for user aadhaar " + aadhaar_number)
+
+    # DPDP-010: raw SQL with plaintext password, built by string concatenation
     conn = sqlite3.connect("users.db")
-    # SQL built by string concatenation + plaintext password stored directly
-    conn.execute(
-        "INSERT INTO users VALUES ('" + user['email'] + "', '" + user['password'] + "')"
-    )
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO users VALUES ('" + email + "', '" + password + "')")
     conn.commit()
-
-
-def get_user(email):
-    conn = sqlite3.connect("users.db")
-    # SQL injection via string concatenation on a PII field
-    return conn.execute(
-        "SELECT * FROM users WHERE email = '" + email + "'"
-    ).fetchone()
+    return {"ok": True}
